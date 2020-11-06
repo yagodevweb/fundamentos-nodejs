@@ -14,18 +14,19 @@ class CreateTransactionService {
   }
 
   public execute({ title, value, type }: Request): Transaction {
-    if (!['income', 'outcome'].includes(type)) {
-      throw new Error('Atenção: O tipo da transação é inválido.');
+    if (!CreateTransactionService.validateTransactionType(type)) {
+      throw new Error('Atenção: Tipo de transação inválido.');
     }
 
-    if (type === 'outcome') {
-      const { total } = this.transactionsRepository.getBalance();
-
-      if (value > total) {
-        throw new Error(
-          'Atenção: Saldo insuficiente para a operação de outcome.',
-        );
-      }
+    if (
+      !CreateTransactionService.checkAvailableBalance(
+        this.transactionsRepository,
+        { value, type },
+      )
+    ) {
+      throw new Error(
+        'Atenção: Saldo insuficiente para a operação de outcome.',
+      );
     }
 
     const transaction = this.transactionsRepository.create({
@@ -35,6 +36,29 @@ class CreateTransactionService {
     });
 
     return transaction;
+  }
+
+  private static validateTransactionType(type: string): boolean {
+    if (!['income', 'outcome'].includes(type)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private static checkAvailableBalance(
+    transactionsRepository: TransactionsRepository,
+    { value, type }: Omit<Request, 'title'>,
+  ): boolean {
+    if (type === 'outcome') {
+      const { total } = transactionsRepository.getBalance();
+
+      if (value > total) {
+        return false;
+      }
+    }
+
+    return true;
   }
 }
 
